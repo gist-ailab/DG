@@ -1,9 +1,14 @@
+import sys
 import os
+sys.path.append(os.path.dirname(os.path.abspath(os.path.dirname(__file__))))
 import shutil
 from pathlib import Path
-from .folder import DomainFolder
+from datasets.folder import DomainFolder
 from ddg.utils import DATASET_REGISTRY
 from torchvision.datasets.utils import download_and_extract_archive
+import gdown
+from zipfile import ZipFile
+import asyncio
 
 
 @DATASET_REGISTRY.register()
@@ -32,9 +37,10 @@ class PACS(DomainFolder):
                     'Photo': {'train': 1499, 'val': 171},
                     'Sketch': {'train': 3531, 'val': 398}
                     }
+    
 
     def __init__(self, root, domains, splits, transform=None, target_transform=None, download=False):
-
+        
         root = os.path.join(root, 'PACS')
 
         if 'test' in splits:
@@ -42,12 +48,33 @@ class PACS(DomainFolder):
             splits.add('train')
             splits.add('val')
 
-        super(PACS, self).__init__(root=root,
+        super(PACS, self).__init__(
+            root=root,
                                    domains=domains,
                                    splits=splits,
                                    transform=transform,
                                    target_transform=target_transform,
                                    download=download)
+    async def download_file(self, url, filename):
+        loop = asyncio.get_event_loop()
+        await loop.run_in_executor(None, gdown.download, url, filename, True)
+        
+
+    async def execute_after_download(self, url, filename):
+        await self.download_file(url, filename)
+        with ZipFile('/ailab_mat/dataset/DDG/PAC.zip', 'r') as zip_ref:
+            zip_ref.extractall()
+
+    async def main(self, url, filename):
+        await execute_after_download(url, filename)    
+
+    # async def unzip_data(self):
+    #     with ZipFile('/ailab_mat/dataset/DDG/PAC.zip', 'r') as zip_ref:
+    #         zip_ref.extractall()
+
+    # async def download_func(self, url, filename):
+    #     await asyncio.wait([self.download_gdrive(url,filename),
+    #     self.unzip_data()])
 
     def download_data(self):
 
@@ -59,15 +86,16 @@ class PACS(DomainFolder):
             shutil.rmtree(split_folder)
 
         resources = [
-            ("https://1h6pna.bn.files.1drv.com/y4mB9wf3RbCy6fT22q2y-1B--AA3TupRF_i47kEM9jLwUOfvKAq"
-             "4XV4F7qzJLVMocveHN_57JkOCXkoFfY0QxLBZ7sHkNKqe5xn-XmKSnpmwlLHEggeoGQth16r1TeMPk4NCZ2w"
-             "97KTIV1u1J0k496SfioRtg6LU0CIE8FZT67W51nqejEU9_qjisfTROALVihzrnWuV1NihwQV4yZK8tfc0w",
-             "PACS.zip", "07272ddb516cd98cc7b044af74b51ab9")
+            ("https://drive.google.com/file/d/12JnO0xDYtr8CatMwGcci1xz66_Gyf6JM",
+             "PACS.zip")
         ]
 
-        for url, filename, md5 in resources:
-            download_and_extract_archive(url, download_root=self.root, filename=filename, md5=md5)
-
+        for url, filename in resources:
+            asyncio.run(self.main(url, filename))
+            # asyncio.run(self.download_gdrive(url, filename))
+            # with ZipFile('/ailab_mat/dataset/DDG/PAC.zip', 'r') as zip_ref:
+            #     zip_ref.extractall()
+            # ZipFile.extractall(path='/ailab_mat/dataset/DDG/PAC')
         for domain in self.all_domains:
             domain_folder = Path(self.root, self.all_domains[domain])
             if domain_folder.exists():
@@ -77,3 +105,9 @@ class PACS(DomainFolder):
                 self._parse_split(split=split, split_file=split_file,
                                   raw_folder=raw_folder, domain_folder=domain_folder)
         shutil.rmtree(raw_folder)
+
+# if __name__=='__main__':
+    # pacs = PACS(root='/ailab_mat/dataset/DDG/',
+    #          domains={'ArtPainting', 'Cartoon', 'Photo', 'Sketch'},
+    #          splits={'train', 'val', 'test'},
+    #          download=True)

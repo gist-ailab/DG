@@ -3,6 +3,9 @@ from .attention import Attention
 
 __all__ = ['Conv2dDynamic']
 
+# class Conv2d_SW(nn.Module):
+#     def __init__(self, ):
+#         super(Conv2d_SW, self).__init__()
 
 class Conv2dDynamic(nn.Module):
     def __init__(self, in_channels: int,

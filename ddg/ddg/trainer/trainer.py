@@ -1,3 +1,7 @@
+import sys
+sys.path.append('/home/sowon_choi/Workspace/DG/ddg')
+sys.path.append('/home/sowon_choi/Workspace/DG/ddg/ddg')
+sys.path.append('/home/sowon_choi/Workspace/DG/ddg/ddg/trainer')
 import os
 import time
 import shutil
@@ -32,7 +36,7 @@ __all__ = ['Trainer']
 def prepare_parameters(task, trainer):
     parser = argparse.ArgumentParser(description=f'{task} trainer named {trainer} provided '
                                                  f'by DDG')
-    parser.add_argument('--root', metavar='DIR', default='./data',
+    parser.add_argument('--root', metavar='DIR', default='/ailab_mat/dataset/DDG',
                         help='path to dataset')
     parser.add_argument('--dataset', metavar='dataset', help='dataset')
     parser.add_argument('--transform', type=str, help='data transform')

@@ -80,7 +80,6 @@ class DomainFolder(ConcatDataset):
         self.domain_to_idx = {domain_name: i for i, domain_name in enumerate(self.domains)}
 
         super(DomainFolder, self).__init__(dataset)
-
         self.check_valid_dataset()
 
     def download_data(self):
