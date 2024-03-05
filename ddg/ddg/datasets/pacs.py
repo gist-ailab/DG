@@ -9,6 +9,7 @@ from torchvision.datasets.utils import download_and_extract_archive
 import gdown
 from zipfile import ZipFile
 import asyncio
+import tarfile
 
 
 @DATASET_REGISTRY.register()
@@ -55,26 +56,7 @@ class PACS(DomainFolder):
                                    transform=transform,
                                    target_transform=target_transform,
                                    download=download)
-    async def download_file(self, url, filename):
-        loop = asyncio.get_event_loop()
-        await loop.run_in_executor(None, gdown.download, url, filename, True)
         
-
-    async def execute_after_download(self, url, filename):
-        await self.download_file(url, filename)
-        with ZipFile('/ailab_mat/dataset/DDG/PAC.zip', 'r') as zip_ref:
-            zip_ref.extractall()
-
-    async def main(self, url, filename):
-        await execute_after_download(url, filename)    
-
-    # async def unzip_data(self):
-    #     with ZipFile('/ailab_mat/dataset/DDG/PAC.zip', 'r') as zip_ref:
-    #         zip_ref.extractall()
-
-    # async def download_func(self, url, filename):
-    #     await asyncio.wait([self.download_gdrive(url,filename),
-    #     self.unzip_data()])
 
     def download_data(self):
 
@@ -86,16 +68,12 @@ class PACS(DomainFolder):
             shutil.rmtree(split_folder)
 
         resources = [
-            ("https://drive.google.com/file/d/12JnO0xDYtr8CatMwGcci1xz66_Gyf6JM",
+            ("https://dl.dropboxusercontent.com/scl/fi/hh1xwkojlceklvxndppu5/PACS.Zip?rlkey=mi0x4pm3mmiooxsmgee2tyeiw",
              "PACS.zip")
         ]
-
         for url, filename in resources:
-            asyncio.run(self.main(url, filename))
-            # asyncio.run(self.download_gdrive(url, filename))
-            # with ZipFile('/ailab_mat/dataset/DDG/PAC.zip', 'r') as zip_ref:
-            #     zip_ref.extractall()
-            # ZipFile.extractall(path='/ailab_mat/dataset/DDG/PAC')
+            download_and_extract_archive(url, download_root='/ailab_mat/dataset/DDG/PACS', filename=filename)
+    
         for domain in self.all_domains:
             domain_folder = Path(self.root, self.all_domains[domain])
             if domain_folder.exists():

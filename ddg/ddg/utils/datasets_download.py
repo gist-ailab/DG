@@ -6,9 +6,9 @@ class TestDatasetsDownload(unittest.TestCase):
     ROOT = '/ailab_mat/dataset/DDG/'
 
     def test_PACS_download(self):
-        ROOT = '/ailab_mat/dataset/DDG/'
+        # ROOT = '/ailab_mat/dataset/DDG/'
         print('test PACS dataset download')
-        pac = PACS(root=ROOT,
+        PACS(root=self.ROOT,
              domains={'ArtPainting', 'Cartoon', 'Photo', 'Sketch'},
              splits={'train', 'val', 'test'},
              download=True)

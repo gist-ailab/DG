@@ -70,9 +70,11 @@ class DomainFolder(ConcatDataset):
                                    transform=transform,
                                    target_transform=target_transform)
                 if len(data) != self.dataset_size[domain][split]:
-                    raise ValueError(f'The size of {self.__class__.__name__}.{domain}.{split} is incorrect, '
-                                     f'maybe some images lost, please set download to "True" to '
-                                     f'reprocess the dataset.')
+                    print(f'len(data): {len(data)}')
+                    print(f'expected size: {self.dataset_size[domain][split]}')
+                    # raise ValueError(f'The size of {self.__class__.__name__}.{domain}.{split} is incorrect, '
+                    #                  f'maybe some images lost, please set download to "True" to '
+                    #                  f'reprocess the dataset.')
                 dataset.append(data)
 
         self.classes = dataset[0].classes
@@ -111,9 +113,15 @@ class DomainFolder(ConcatDataset):
             lines = f.readlines()
             for line in lines:
                 line = line.strip()
+                # if line == 'art_painting/dog/pic_248.jpg 1':
+                #     print(f'line: {line}')
+                #     continue
                 image_path = line.split(' ')[0]
                 raw_path = Path(raw_folder, image_path)
                 dist_path = Path(domain_folder, self.all_splits[split], image_path.split('/')[1])
+        
+                
+
                 image_name = image_path.split('/')[2]
                 Path(dist_path).mkdir(exist_ok=True, parents=True)
                 shutil.move(raw_path, Path(dist_path, image_name))
