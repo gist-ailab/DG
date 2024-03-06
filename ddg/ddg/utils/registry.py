@@ -44,11 +44,11 @@ class Registry(Iterable[Tuple[str, Any]]):
         self._name: str = name
         self._obj_map: Dict[str, Any] = {}
 
-    # def _do_register(self, name: str, obj: Any) -> None:
-    #     assert (
-    #         name not in self._obj_map
-    #     ), f"An object named '{name}' was already registered in '{self._name}' registry!"
-    #     self._obj_map[name] = obj
+    def _do_register(self, name: str, obj: Any) -> None:
+        # assert (
+        #     name not in self._obj_map
+        # ), f"An object named '{name}' was already registered in '{self._name}' registry!"
+        self._obj_map[name] = obj
 
     def register(self, obj: Any = None) -> Any:
         """
@@ -59,14 +59,14 @@ class Registry(Iterable[Tuple[str, Any]]):
             # used as a decorator
             def deco(func_or_class: Any) -> Any:
                 name = func_or_class.__name__
-                # self._do_register(name, func_or_class)
+                self._do_register(name, func_or_class)
                 return func_or_class
 
             return deco
 
         # used as a function call
         name = obj.__name__
-        # self._do_register(name, obj)
+        self._do_register(name, obj)
 
     def get(self, name: str) -> Any:
         ret = self._obj_map.get(name)

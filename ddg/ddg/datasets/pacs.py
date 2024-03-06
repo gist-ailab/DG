@@ -6,10 +6,7 @@ from pathlib import Path
 from datasets.folder import DomainFolder
 from ddg.utils import DATASET_REGISTRY
 from torchvision.datasets.utils import download_and_extract_archive
-import gdown
 from zipfile import ZipFile
-import asyncio
-import tarfile
 
 
 @DATASET_REGISTRY.register()

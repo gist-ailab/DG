@@ -9,7 +9,7 @@ from ddg.utils import MODELS_REGISTRY
 from .conv import Conv2dDynamic
 from .mixstyle import MixStyle
 
-__all__ = ['ResNet', 'resnet18', 'resnet34', 'resnet50', 'resnet101',
+__all__ = ['ResNetCSD', 'resnet18_csd', 'ResNet', 'resnet18', 'resnet34', 'resnet50', 'resnet101',
            'resnet152', 'resnext50_32x4d', 'resnext101_32x8d',
            'wide_resnet50_2', 'wide_resnet101_2',
            'resnet18_backbone', 'resnet34_backbone', 'resnet50_backbone', 'resnet101_backbone',
@@ -283,61 +283,7 @@ class BottleneckDynamic(nn.Module):
 
         return out
 
-# class BottleneckDynamic_SW(nn.Module):
 
-#     expansion: int = 4
-
-#     def __init__(
-#             self,
-#             inplanes: int,
-#             planes: int,
-#             stride: int = 1,
-#             downsample: Optional[nn.Module] = None,
-#             groups: int = 1,
-#             base_width: int = 64,
-#             dilation: int = 1,
-#             norm_layer: Optional[Callable[..., nn.Module]] = None
-#     ) -> None:
-#         super(BottleneckDynamic_SW, self).__init__()
-#         if groups != 1:
-#             raise ValueError('BottleneckDynamic only supports groups=1')
-#         if dilation > 1:
-#             raise NotImplementedError("Dilation > 1 not supported in BottleneckDynamic")
-#         if norm_layer is None:
-#             norm_layer = nn.BatchNorm2d
-#         width = int(planes * (base_width / 64.)) * groups
-#         # Both self.conv2 and self.downsample layers downsample the input when stride != 1
-#         self.conv1 = conv1x1(inplanes, width)
-#         self.bn1 = norm_layer(width)
-#         self.conv2 = conv3x3_dynamic(width, width, stride, attention_in_channels=inplanes)
-#         self.bn2 = norm_layer(width)
-#         self.conv3 = conv1x1(width, planes * self.expansion)
-#         self.bn3 = norm_layer(planes * self.expansion)
-#         self.relu = nn.ReLU(inplace=True)
-#         self.downsample = downsample
-#         self.stride = stride
-
-#     def forward(self, x: Tensor) -> Tensor:
-#         identity = x
-
-#         out = self.conv1(x)
-#         out = self.bn1(out)
-#         out = self.relu(out)
-
-#         out = self.conv2(out, attention_x=x)
-#         out = self.bn2(out)
-#         out = self.relu(out)
-
-#         out = self.conv3(out)
-#         out = self.bn3(out)
-
-#         if self.downsample is not None:
-#             identity = self.downsample(x)
-
-#         out += identity
-#         out = self.relu(out)
-
-#         return out
 
 class ResNet(nn.Module):
 
@@ -405,9 +351,15 @@ class ResNet(nn.Module):
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
                 nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
-            elif isinstance(m, (nn.BatchNorm2d, nn.GroupNorm)):
+            elif isinstance(m, nn.BatchNorm2d):
                 nn.init.constant_(m.weight, 1)
                 nn.init.constant_(m.bias, 0)
+        # for m in self.modules():
+        #     if isinstance(m, nn.Conv2d):
+        #         nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
+        #     elif isinstance(m, (nn.BatchNorm2d, nn.GroupNorm)):
+        #         nn.init.constant_(m.weight, 1)
+        #         nn.init.constant_(m.bias, 0)
 
         # Zero-initialize the last BN in each residual branch,
         # so that the residual branch starts with zeros, and each residual block behaves like an identity.
@@ -465,9 +417,9 @@ class ResNet(nn.Module):
         x = self.avgpool(x)
         x = torch.flatten(x, 1)
         if self.has_fc:
-            x = self.fc(x)
+            pred = self.fc(x)
 
-        return x
+        return x, pred
 
     def forward(self, x: Tensor) -> Tensor:
         return self._forward_impl(x)
@@ -494,6 +446,154 @@ def _resnet(
         allowed_missing_keys = removed_keys if model.has_fc else None
         load_state_dict(model, state_dict, allowed_missing_keys)
     return model
+
+
+
+class ResNetCSD(nn.Module):
+    def __init__(self,     
+            block: Type[Union[BasicBlock, Bottleneck, BasicBlockDynamic, BottleneckDynamic]],
+            layers: List[int],
+            has_fc: bool = True,
+            num_classes: int = 1000,
+            zero_init_residual: bool = False,
+            groups: int = 1,
+            width_per_group: int = 64,
+            replace_stride_with_dilation: Optional[List[bool]] = None,
+            norm_layer: Optional[Callable[..., nn.Module]] = None,
+            ms_class=None,
+            ms_layers=None,
+            ms_p=0.5,
+            ms_a=0.1,
+            classes=100):
+        self.inplanes = 64
+        super().__init__()
+        self.has_fc = has_fc
+        self.out_features = 512 * block.expansion
+
+        self.conv1 = nn.Conv2d(3, 64, kernel_size=7, stride=2, padding=3,
+                               bias=False)
+        self.bn1 = nn.BatchNorm2d(64)
+        self.relu = nn.ReLU(inplace=True)
+        self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
+        self.layer1 = self._make_layer(block, 64, layers[0])
+        self.layer2 = self._make_layer(block, 128, layers[1], stride=2)
+        self.layer3 = self._make_layer(block, 256, layers[2], stride=2)
+        self.layer4 = self._make_layer(block, 512, layers[3], stride=2)
+        self.avgpool = nn.AvgPool2d(7, stride=1)
+    
+        K = 2
+        # sms: 2, 512, 100 / sm_biases: 2, 100
+        self.sms = torch.nn.Parameter(torch.normal(0, 1e-1, size=[K, 512, classes], dtype=torch.float, device='cuda'), requires_grad=True)
+        self.sm_biases = torch.nn.Parameter(torch.normal(0, 1e-1, size=[K, classes], dtype=torch.float, device='cuda'), requires_grad=True)
+        # emb
+        self.embs = torch.nn.Parameter(torch.normal(mean=0., std=1e-4, size=[64, K-1], dtype=torch.float, device='cuda'), requires_grad=True)
+        self.cs_wt = torch.nn.Parameter(torch.normal(mean=.1, std=1e-4, size=[], dtype=torch.float, device='cuda'), requires_grad=True)
+
+        for m in self.modules():
+            if isinstance(m, nn.Conv2d):
+                nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
+            elif isinstance(m, nn.BatchNorm2d):
+                nn.init.constant_(m.weight, 1)
+                nn.init.constant_(m.bias, 0)
+
+        # if zero_init_residual:
+        #     for m in self.modules():
+        #         if isinstance(m, Bottleneck):
+        #             nn.init.constant_(m.bn3.weight, 0)  # type: ignore[arg-type]
+        #         elif isinstance(m, BasicBlock):
+        #             nn.init.constant_(m.bn2.weight, 0)  # type: ignore[arg-type
+
+    def _make_layer(self, block, planes, blocks, stride=1):
+        downsample = None
+        if stride != 1 or self.inplanes != planes * block.expansion:
+            downsample = nn.Sequential(
+                nn.Conv2d(self.inplanes, planes * block.expansion,
+                          kernel_size=1, stride=stride, bias=False),
+                nn.BatchNorm2d(planes * block.expansion),
+            )
+
+        layers = []
+        layers.append(block(self.inplanes, planes, stride, downsample))
+        self.inplanes = planes * block.expansion
+        for i in range(1, blocks):
+            layers.append(block(self.inplanes, planes))
+
+        return nn.Sequential(*layers)
+
+    def is_patch_based(self):
+        return False
+
+    def forward(self, x, **kwargs):
+        # one hot uids
+        x = self.conv1(x)
+        x = self.bn1(x)
+        x = self.relu(x)
+        x = self.maxpool(x)
+
+        x = self.layer1(x)
+        x = self.layer2(x)
+        x = self.layer3(x)
+        x = self.layer4(x)
+
+        x = self.avgpool(x)
+        x = x.view(x.size(0), -1)
+        
+        # [512, 100], [100]
+        w_c, b_c = self.sms[0, :, :], self.sm_biases[0, :]
+        print(f'w_c:{w_c.shape}, b_c:{b_c.shape}')
+        
+        # 8th Layer: FC and return unscaled activations
+        logits_common = torch.matmul(x, w_c) + b_c
+        print(f'logit_common:{logits_common.shape}')
+        c_wts = self.embs # uids matmul 삭제
+        print(f'c_wtc:{c_wts.shape}, sms:{self.sms.shape}, sm_bias{self.sm_biases.shape}')
+        # B x K
+        batch_size = x.shape[0]
+        print(f'x:{x.shape}, batch_size {batch_size}')
+        c_wts = torch.cat((torch.ones((batch_size, 1), dtype=torch.float, device='cuda')*self.cs_wt, c_wts), 1)
+        print(f'cat: c_wtc:{c_wts.shape}')
+        c_wts = torch.tanh(c_wts)
+        print(f'tanh: c_wtc:{c_wts.shape}')
+        w_d, b_d = torch.einsum("bk,krl->brl", c_wts, self.sms), torch.einsum("bk,kl->bl", c_wts, self.sm_biases)
+        logits_specialized = torch.einsum("brl,br->bl", w_d, x) + b_d
+        
+        return logits_specialized, logits_common
+def _resnetcsd(
+        arch: str,
+        block: Type[Union[BasicBlock, Bottleneck, BasicBlockDynamic, BottleneckDynamic]],
+        layers: List[int],
+        pretrained: bool,
+        progress: bool,
+        num_classes: int,
+        **kwargs: Any
+) -> ResNetCSD:
+    model = ResNetCSD(block, layers, **kwargs)
+    if pretrained:
+        state_dict = load_state_dict_from_url(model_urls[arch],
+                                              progress=progress)
+        # remove useless keys from sate_dict 1. no fc; 2. out_features != 1000.
+        removed_keys = model.has_fc is False or (model.has_fc is True and model.out_features != 1000)
+        removed_keys = ['fc.weight', 'fc.bias'] if removed_keys else []
+        csd_removed_keys=['sms', 'sm_biases', 'embs', 'cs_wt']
+        for key in removed_keys :
+            state_dict.pop(key)
+        # csd_removed_keys=['sms', 'sm_biases', 'embs', 'cs_wt']
+        # if has fc, then allow missing key, else strict load state_dict.
+        allowed_missing_keys = removed_keys + csd_removed_keys if model.has_fc else csd_removed_keys
+        load_state_dict(model, state_dict, allowed_missing_keys)
+    return model
+
+@MODELS_REGISTRY.register()
+def resnet18_csd(name, args, from_name=None) -> ResNetCSD:
+    """Constructs a ResNet-18 model.
+    Args:
+        pretrained (bool): If True, returns a model pre-trained on ImageNet
+    """
+    model = _resnetcsd('resnet18', BasicBlock, [2, 2, 2, 2], pretrained=args.pretrained, progress=True,
+                    num_classes=args.num_classes)
+    args.__dict__[name]['out_features'] = model.out_features
+    return model
+
 
 
 @MODELS_REGISTRY.register()
