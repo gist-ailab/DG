@@ -1,7 +1,7 @@
 #/bin/bash
 set -e
 
-folder="1"
+folder="2"
 if [[ $# == 1 ]]; then
   folder=$1
 fi

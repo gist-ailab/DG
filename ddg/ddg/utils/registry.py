@@ -4,7 +4,7 @@ from typing import Any, Dict, Iterable, Iterator, Tuple
 
 from tabulate import tabulate
 
-__all__ = ['Registry', 'DATASET_REGISTRY', 'TRANSFORMS_REGISTRY', 'SAMPLERS_REGISTRY', 'MODELS_REGISTRY']
+__all__ = ['Registry', 'LOSS_REGISTRY', 'DATASET_REGISTRY', 'TRANSFORMS_REGISTRY', 'SAMPLERS_REGISTRY', 'MODELS_REGISTRY']
 
 
 class Registry(Iterable[Tuple[str, Any]]):
@@ -94,7 +94,9 @@ class Registry(Iterable[Tuple[str, Any]]):
     __str__ = __repr__
 
 
+LOSS_REGISTRY = Registry('LOSS')
 DATASET_REGISTRY = Registry('DATASET')
 TRANSFORMS_REGISTRY = Registry("TRANSFORMS")
 SAMPLERS_REGISTRY = Registry("SAMPLERS")
 MODELS_REGISTRY = Registry("MODELS")
+

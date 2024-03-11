@@ -20,6 +20,7 @@ from torch import optim
 from torch import distributed
 from torch.backends import cudnn
 from torch.optim import lr_scheduler
+import datetime as dt
 from torch.utils.tensorboard import SummaryWriter
 from torch.nn.parallel import DistributedDataParallel
 from torch.utils.collect_env import get_pretty_env_info
@@ -46,7 +47,7 @@ def prepare_parameters(task, trainer):
     parser.add_argument('--target-domains', type=str, nargs='+',
                         help=f'target domains for {task}')
     parser.add_argument('--models', type=str, nargs='+', metavar='KEY=VALUE',
-                        default=OrderedDict({'model': 'resnet18'}), action=DictAction,
+                        default=OrderedDict({'backbone': 'resnet18_dynamic', 'fc': 'fc'}), action=DictAction,
                         help='get a number of key-value pairs (model_name=model_arch), models will be '
                              'initialized in input order, pay attention to their dependencies. '
                              'Note: All arguments required by models can be passed into args by overriding '
@@ -126,7 +127,9 @@ class Trainer:
         self.parser = prepare_parameters(task=self.TASK, trainer=self.__class__.__name__)
         self.add_extra_args()
         args = self.parser.parse_args()
-        log_file = 'log.txt'
+
+        filename = dt.datetime.now().strftime("%m_%d_%H_%M_%S")
+        log_file = f'{filename}log.txt'
         if args.distributed:
             args.local_rank = int(os.environ["LOCAL_RANK"])
             args.rank = int(os.environ["RANK"])

@@ -7,29 +7,33 @@ from typing import Type, Any, Callable, Union, List, Optional
 from ddg.utils import load_state_dict
 from ddg.utils import MODELS_REGISTRY
 from .conv import Conv2dDynamic
+from .conv import Conv2d_LRD
 from .mixstyle import MixStyle
 
-__all__ = ['ResNetCSD', 'resnet18_csd', 'ResNet', 'resnet18', 'resnet34', 'resnet50', 'resnet101',
-           'resnet152', 'resnext50_32x4d', 'resnext101_32x8d',
-           'wide_resnet50_2', 'wide_resnet101_2',
-           'resnet18_backbone', 'resnet34_backbone', 'resnet50_backbone', 'resnet101_backbone',
-           'resnet152_backbone', 'resnext50_32x4d_backbone', 'resnext101_32x8d_backbone',
-           'wide_resnet50_2_backbone', 'wide_resnet101_2_backbone',
-           'resnet18_dynamic', 'resnet50_dynamic', 'resnet101_dynamic',
-           'resnet18_dynamic_backbone', 'resnet50_dynamic_backbone', 'resnet101_dynamic_backbone',
-           'resnet18_ms_l123', 'resnet18_ms_l12', 'resnet18_ms_l1',
-           'resnet50_ms_l123', 'resnet50_ms_l12', 'resnet50_ms_l1',
-           'resnet101_ms_l123', 'resnet101_ms_l12', 'resnet101_ms_l1',
-           'resnet18_ms_l123_backbone', 'resnet18_ms_l12_backbone', 'resnet18_ms_l1_backbone',
-           'resnet50_ms_l123_backbone', 'resnet50_ms_l12_backbone', 'resnet50_ms_l1_backbone',
-           'resnet101_ms_l123_backbone', 'resnet101_ms_l12_backbone', 'resnet101_ms_l1_backbone',
-           'resnet18_dynamic_ms_l123', 'resnet18_dynamic_ms_l12', 'resnet18_dynamic_ms_l1',
-           'resnet50_dynamic_ms_l123', 'resnet50_dynamic_ms_l12', 'resnet50_dynamic_ms_l1',
-           'resnet101_dynamic_ms_l123', 'resnet101_dynamic_ms_l12', 'resnet101_dynamic_ms_l1',
-           'resnet18_dynamic_ms_l123_backbone', 'resnet18_dynamic_ms_l12_backbone', 'resnet18_dynamic_ms_l1_backbone',
-           'resnet50_dynamic_ms_l123_backbone', 'resnet50_dynamic_ms_l12_backbone', 'resnet50_dynamic_ms_l1_backbone',
-           'resnet101_dynamic_ms_l123_backbone', 'resnet101_dynamic_ms_l12_backbone',
-           'resnet101_dynamic_ms_l1_backbone']
+__all__ = ['ResNet', 'resnet18', 'resnet34', 'resnet50', 'resnet101',
+           'resnet18_lrd', 'resnet34_lrd', 'resnet50_lrd',
+          'resnet18_dynamic', 'resnet50_dynamic']
+
+        #    'resnet152', 'resnext50_32x4d', 'resnext101_32x8d',
+        #    'wide_resnet50_2', 'wide_resnet101_2',
+        #    'resnet18_backbone', 'resnet34_backbone', 'resnet50_backbone', 'resnet101_backbone',
+        #    'resnet152_backbone', 'resnext50_32x4d_backbone', 'resnext101_32x8d_backbone',
+        #    'wide_resnet50_2_backbone', 'wide_resnet101_2_backbone',
+        #    'resnet18_dynamic', 'resnet50_dynamic', 'resnet101_dynamic',
+        #    'resnet18_dynamic_backbone', 'resnet50_dynamic_backbone', 'resnet101_dynamic_backbone',
+        #    'resnet18_ms_l123', 'resnet18_ms_l12', 'resnet18_ms_l1',
+        #    'resnet50_ms_l123', 'resnet50_ms_l12', 'resnet50_ms_l1',
+        #    'resnet101_ms_l123', 'resnet101_ms_l12', 'resnet101_ms_l1',
+        #    'resnet18_ms_l123_backbone', 'resnet18_ms_l12_backbone', 'resnet18_ms_l1_backbone',
+        #    'resnet50_ms_l123_backbone', 'resnet50_ms_l12_backbone', 'resnet50_ms_l1_backbone',
+        #    'resnet101_ms_l123_backbone', 'resnet101_ms_l12_backbone', 'resnet101_ms_l1_backbone',
+        #    'resnet18_dynamic_ms_l123', 'resnet18_dynamic_ms_l12', 'resnet18_dynamic_ms_l1',
+        #    'resnet50_dynamic_ms_l123', 'resnet50_dynamic_ms_l12', 'resnet50_dynamic_ms_l1',
+        #    'resnet101_dynamic_ms_l123', 'resnet101_dynamic_ms_l12', 'resnet101_dynamic_ms_l1',
+        #    'resnet18_dynamic_ms_l123_backbone', 'resnet18_dynamic_ms_l12_backbone', 'resnet18_dynamic_ms_l1_backbone',
+        #    'resnet50_dynamic_ms_l123_backbone', 'resnet50_dynamic_ms_l12_backbone', 'resnet50_dynamic_ms_l1_backbone',
+        #    'resnet101_dynamic_ms_l123_backbone', 'resnet101_dynamic_ms_l12_backbone',
+        #    'resnet101_dynamic_ms_l1_backbone']
 
 model_urls = {
     'resnet18': 'https://download.pytorch.org/models/resnet18-f37072fd.pth',
@@ -65,6 +69,11 @@ def conv1x1(in_planes: int, out_planes: int, stride: int = 1) -> nn.Conv2d:
     """1x1 convolution"""
     return nn.Conv2d(in_planes, out_planes, kernel_size=1, stride=stride, bias=False)
 
+def conv1x1_lrd(in_planes: int, out_planes: int, stride: int = 1, rank=2) -> Conv2d_LRD:
+    return Conv2d_LRD(in_planes, out_planes, kernel_size=1, stride=stride, bias=False)
+
+def conv3x3_lrd(in_planes: int, out_planes: int, stride: int = 1, rank=2) -> Conv2d_LRD:
+    return Conv2d_LRD(in_planes, out_planes, kernel_size=3, stride=stride, padding=1, bias=False)
 
 class BasicBlock(nn.Module):
     expansion: int = 1
@@ -116,11 +125,6 @@ class BasicBlock(nn.Module):
 
 
 class Bottleneck(nn.Module):
-    # Bottleneck in torchvision places the stride for downsampling at 3x3 convolution(self.conv2)
-    # while original implementation places the stride at the first 1x1 convolution(self.conv1)
-    # according to "Deep residual learning for image recognition"https://arxiv.org/abs/1512.03385.
-    # This variant is also known as ResNet V1.5 and improves accuracy according to
-    # https://ngc.nvidia.com/catalog/model-scripts/nvidia:resnet_50_v1_5_for_pytorch.
 
     expansion: int = 4
 
@@ -136,9 +140,11 @@ class Bottleneck(nn.Module):
             norm_layer: Optional[Callable[..., nn.Module]] = None
     ) -> None:
         super(Bottleneck, self).__init__()
+        self.base_width = base_width
+        self.groups = groups
         if norm_layer is None:
             norm_layer = nn.BatchNorm2d
-        width = int(planes * (base_width / 64.)) * groups
+        width = int(planes * (self.base_width / 64.)) * self.groups
         # Both self.conv2 and self.downsample layers downsample the input when stride != 1
         self.conv1 = conv1x1(inplanes, width)
         self.bn1 = norm_layer(width)
@@ -160,7 +166,7 @@ class Bottleneck(nn.Module):
         out = self.conv2(out)
         out = self.bn2(out)
         out = self.relu(out)
-
+###################################
         out = self.conv3(out)
         out = self.bn3(out)
 
@@ -223,11 +229,6 @@ class BasicBlockDynamic(nn.Module):
 
 
 class BottleneckDynamic(nn.Module):
-    # Bottleneck in torchvision places the stride for downsampling at 3x3 convolution(self.conv2)
-    # while original implementation places the stride at the first 1x1 convolution(self.conv1)
-    # according to "Deep residual learning for image recognition"https://arxiv.org/abs/1512.03385.
-    # This variant is also known as ResNet V1.5 and improves accuracy according to
-    # https://ngc.nvidia.com/catalog/model-scripts/nvidia:resnet_50_v1_5_for_pytorch.
 
     expansion: int = 4
 
@@ -283,27 +284,131 @@ class BottleneckDynamic(nn.Module):
 
         return out
 
+class meta_linear(nn.Module):
+    def __init__(self, in_features, out_features, bias=True):
+        super(meta_linear, self).__init__()
+
+        self.meta = nn.Linear(in_features, out_features, bias=bias)
+        # self.in_features = in_features
+        # self.out_features = out_features
+        # self.weight = nn.Parameter(torch.Tensor(out_features, in_features))
+        # if bias:
+        #     self.bias = nn.Parameter(torch.Tensor(out_features))
+        # else:
+        #     self.register_parameter('bias', None)
+        # self.reset_parameters()
+    def forward(self, x):
+        param = self.meta(x)
+
+        return param
+    
+class BasicBlockLRD(BasicBlock):
+    def __init__(
+            self,
+            inplanes: int,
+            planes: int,
+            rank: int = 2,
+            *kwargs: Any
+    ):
+        super().__init__(inplanes=inplanes, planes=planes, *kwargs)
+        self.meta = meta_linear(planes, rank, True)
+        self.conv2 = conv3x3_lrd(planes, planes, rank=rank)
+
+
+    def forward(self, x: Tensor) -> Tensor:
+        return self._forward_lrd(x)
+    
+    def _forward_lrd(self, x: Tensor) -> Tensor:
+        self.identity = x
+
+        out = self.conv1(x)
+        out = self.bn1(out)
+        out = self.relu(out)
+
+        dynamic_param = self.meta(out)
+        feature, common_out, specific_out = self.conv2(out, dynamic_param)
+        feature = self._forward_feature(feature)
+        common_out = self._forward_feature(common_out)
+        specific_out = self._forward_feature(specific_out)
+
+        return feature, common_out, specific_out
+
+
+    def _forward_feature(self, features):
+        out = self.bn3(features)
+
+        if self.downsample is not None:
+            self.identity = self.downsample(features)
+
+        out += self.identity
+        out = self.relu(out)
+
+        return out
+
+
+class BottleneckLRD(Bottleneck):
+    def __init__(
+            self,
+            inplanes: int,
+            planes: int,
+            stride: int = 1,
+            rank: int = 2,
+            *kwargs: Any
+    ):
+        super().__init__(inplanes=inplanes, planes=planes, *kwargs)
+        
+        width = int(planes * (self.base_width / 64.)) * self.groups
+
+        self.conv3 = conv1x1_lrd(width, planes * self.expansion, rank=rank)
+    
+    def forward(self, x: Tensor) -> Tensor:
+        return self._forward_lrd(x)
+    
+    def _forward_lrd(self, x: Tensor) -> Tensor:
+        self.identity = x
+
+        out = self.conv1(x)
+        out = self.bn1(out)
+        out = self.relu(out)
+
+        out = self.conv2(out)
+        out = self.bn2(out)
+        out = self.relu(out)
+
+        feature, common_out, specific_out = self.conv3(out)
+        feature = self._forward_feature(feature)
+        common_out = self._forward_feature(common_out)
+        specific_out = self._forward_feature(specific_out)
+
+        return feature, common_out, specific_out
+    
+    def _forward_feature(self, features):
+        out = self.bn3(features)
+
+        if self.downsample is not None:
+            self.identity = self.downsample(features)
+
+        out += self.identity
+        out = self.relu(out)
+
+        return out
 
 
 class ResNet(nn.Module):
-
     def __init__(
             self,
-            block: Type[Union[BasicBlock, Bottleneck, BasicBlockDynamic, BottleneckDynamic]],
-            layers: List[int],
-            has_fc: bool = True,
-            num_classes: int = 1000,
+            blocks,
+            layers,
+            num_class = None,
             zero_init_residual: bool = False,
             groups: int = 1,
+          
             width_per_group: int = 64,
             replace_stride_with_dilation: Optional[List[bool]] = None,
             norm_layer: Optional[Callable[..., nn.Module]] = None,
-            ms_class=None,
-            ms_layers=None,
-            ms_p=0.5,
-            ms_a=0.1
     ) -> None:
-        super(ResNet, self).__init__()
+        super().__init__()
+
         if norm_layer is None:
             norm_layer = nn.BatchNorm2d
         self._norm_layer = norm_layer
@@ -311,288 +416,181 @@ class ResNet(nn.Module):
         self.inplanes = 64
         self.dilation = 1
         if replace_stride_with_dilation is None:
-            # each element in the tuple indicates if we should replace
-            # the 2x2 stride with a dilated convolution instead
             replace_stride_with_dilation = [False, False, False]
         if len(replace_stride_with_dilation) != 3:
             raise ValueError("replace_stride_with_dilation should be None "
                              "or a 3-element tuple, got {}".format(replace_stride_with_dilation))
         self.groups = groups
         self.base_width = width_per_group
+
+
+        ###################################################################
+ 
+        self.num_class = num_class
+
+        self.inplanes = 64
         self.conv1 = nn.Conv2d(3, self.inplanes, kernel_size=7, stride=2, padding=3,
                                bias=False)
         self.bn1 = norm_layer(self.inplanes)
         self.relu = nn.ReLU(inplace=True)
         self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
-        self.layer1 = self._make_layer(block, 64, layers[0])
-        self.layer2 = self._make_layer(block, 128, layers[1], stride=2,
-                                       dilate=replace_stride_with_dilation[0])
-        self.layer3 = self._make_layer(block, 256, layers[2], stride=2,
-                                       dilate=replace_stride_with_dilation[1])
-        self.layer4 = self._make_layer(block, 512, layers[3], stride=2,
-                                       dilate=replace_stride_with_dilation[2])
+
+        
+        self.layer1 = self._make_layer(blocks[0], 64, layers[0]) 
+        self.layer2 = self._make_layer(blocks[1], 128, layers[1], stride=2, dilate=replace_stride_with_dilation[0])
+        self.layer3 = self._make_layer(blocks[2], 256, layers[2], stride=2, dilate=replace_stride_with_dilation[1])
+        self.layer4 = self._make_layer(blocks[3], 512, layers[3], stride=2, dilate=replace_stride_with_dilation[2])
         self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
 
-        self.has_fc = has_fc
-        self.out_features = 512 * block.expansion
-        if has_fc:
-            self.fc = nn.Linear(self.out_features, num_classes)
-            self.out_features = num_classes
+        self.out_features = 512 * blocks[3].expansion
+    
+    def foward(self, x):
+        if (BasicBlockLRD in self.blocks) or (BottleneckLRD in self.blocks):
+            feature, common_out, specific_out = self._forward_lrd(x)
+            return feature, common_out, specific_out
+        else: 
+            x = self._forward(x)
+            return x
+    
+    def _forward(self, x):
+        x = self.conv1(x)
+        x = self.bn1(x)
+        x = self.relu(x)
+        x = self.maxpool(x)
 
-        if ms_class is not None and ms_layers is not None:
-            self.ms_class = ms_class(p=ms_p, alpha=ms_a)
-            for layer in ms_layers:
-                assert layer in ['layer1', 'layer2', 'layer3']
-            self.ms_layers = ms_layers
-        else:
-            self.ms_class = None
-            self.ms_layers = []
+        x = self.layer1(x)
+        x = self.layer2(x)
+        x = self.layer3(x)
+        x = self.layer4(x)
 
-        for m in self.modules():
-            if isinstance(m, nn.Conv2d):
-                nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
-            elif isinstance(m, nn.BatchNorm2d):
-                nn.init.constant_(m.weight, 1)
-                nn.init.constant_(m.bias, 0)
-        # for m in self.modules():
-        #     if isinstance(m, nn.Conv2d):
-        #         nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
-        #     elif isinstance(m, (nn.BatchNorm2d, nn.GroupNorm)):
-        #         nn.init.constant_(m.weight, 1)
-        #         nn.init.constant_(m.bias, 0)
+        x = self.avgpool(x)
+        x = torch.flatten(x, 1)
 
-        # Zero-initialize the last BN in each residual branch,
-        # so that the residual branch starts with zeros, and each residual block behaves like an identity.
-        # This improves the model by 0.2~0.3% according to https://arxiv.org/abs/1706.02677
-        if zero_init_residual:
-            for m in self.modules():
-                if isinstance(m, Bottleneck):
-                    nn.init.constant_(m.bn3.weight, 0)  # type: ignore[arg-type]
-                elif isinstance(m, BasicBlock):
-                    nn.init.constant_(m.bn2.weight, 0)  # type: ignore[arg-type]
+        return x
+  
 
-    def _make_layer(self, block: Type[Union[BasicBlock, Bottleneck]], planes: int, blocks: int,
-                    stride: int = 1, dilate: bool = False) -> nn.Sequential:
+    def _make_layer(self, block_type, planes, num_block,
+                    stride:int=1, dilate: bool=False) -> nn.Sequential:
+        
         norm_layer = self._norm_layer
         downsample = None
         previous_dilation = self.dilation
         if dilate:
             self.dilation *= stride
             stride = 1
-        if stride != 1 or self.inplanes != planes * block.expansion:
+        if stride != 1 or self.inplanes != planes * block_type.expansion:
             downsample = nn.Sequential(
-                conv1x1(self.inplanes, planes * block.expansion, stride),
-                norm_layer(planes * block.expansion),
+                conv1x1(self.inplanes, planes * block_type.expansion, stride),
+                norm_layer(planes * block_type.expansion),
             )
 
-        layers = []
-        layers.append(block(self.inplanes, planes, stride, downsample, self.groups,
-                            self.base_width, previous_dilation, norm_layer))
-        self.inplanes = planes * block.expansion
-        for _ in range(1, blocks):
-            layers.append(block(self.inplanes, planes, groups=self.groups,
-                                base_width=self.base_width, dilation=self.dilation,
-                                norm_layer=norm_layer))
 
+        ###########################################################    
+        layers = []
+        layers.append(block_type(self.inplanes, planes, stride=1))
+
+        self.inplanes = planes * block_type.expansion
+
+        for i in range(1, num_block+1):
+            if block_type == BottleneckLRD:
+                if i == num_block:
+                    layers.append(BottleneckLRD(self.inplanes, planes))
+                else: layers.append(Bottleneck(self.inplanes, planes))
+            else: layers.append(block_type(self.inplanes, planes))
+        ############################################################
         return nn.Sequential(*layers)
 
-    def _forward_impl(self, x: Tensor) -> Tensor:
-        # See note [TorchScript super()]
-        x = self.conv1(x)
-        x = self.bn1(x)
-        x = self.relu(x)
-        x = self.maxpool(x)
-
-        x = self.layer1(x)
-        if 'layer1' in self.ms_layers:
-            x = self.ms_class(x)
-        x = self.layer2(x)
-        if 'layer2' in self.ms_layers:
-            x = self.ms_class(x)
-        x = self.layer3(x)
-        if 'layer3' in self.ms_layers:
-            x = self.ms_class(x)
-        x = self.layer4(x)
-
-        x = self.avgpool(x)
-        x = torch.flatten(x, 1)
-        if self.has_fc:
-            pred = self.fc(x)
-
-        return x, pred
-
-    def forward(self, x: Tensor) -> Tensor:
-        return self._forward_impl(x)
-
+    # def init_weights(self, pretrained: bool = False):
+    #     if pretrained == False:
+    #         state_dict = load_state_dict_from_url(model_urls['resnet50'], progress=True)
+    #         load_state_dict(self, state_dict)
+        
+blocknames= [BasicBlock, Bottleneck, BasicBlockDynamic, BottleneckDynamic, BasicBlockLRD, BottleneckLRD]
 
 def _resnet(
-        arch: str,
-        block: Type[Union[BasicBlock, Bottleneck, BasicBlockDynamic, BottleneckDynamic]],
+        blocks: List,
         layers: List[int],
         pretrained: bool,
         progress: bool,
+        model_arch: str = None,
         **kwargs: Any
 ) -> ResNet:
-    model = ResNet(block, layers, **kwargs)
+    model = ResNet(blocks, layers, pretrained, **kwargs)
     if pretrained:
-        state_dict = load_state_dict_from_url(model_urls[arch],
-                                              progress=progress)
-        # remove useless keys from sate_dict 1. no fc; 2. out_features != 1000.
-        removed_keys = model.has_fc is False or (model.has_fc is True and model.out_features != 1000)
-        removed_keys = ['fc.weight', 'fc.bias'] if removed_keys else []
-        for key in removed_keys:
-            state_dict.pop(key)
-        # if has fc, then allow missing key, else strict load state_dict.
-        allowed_missing_keys = removed_keys if model.has_fc else None
-        load_state_dict(model, state_dict, allowed_missing_keys)
+        if model_arch is None:
+            raise ValueError('model_arch should be provided when pretrained is True.')
+        state_dict = load_state_dict_from_url(model_urls[model_arch],
+                                            progress=progress)
+        
+        ms_layer, _ = load_state_dict(model, state_dict)
+
+        for m in model.modules():
+            if m in ms_layer:
+                if isinstance(m, nn.Conv2d):
+                    nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
+                elif isinstance(m, nn.BatchNorm2d):
+                    nn.init.constant_(m.weight, 1)
+                    nn.init.constant_(m.bias, 0)
+        return model
+
+        
+@MODELS_REGISTRY.register()
+def resnet18_lrd(name, args, from_name=None) -> ResNet:
+    model = _resnet([BasicBlock, BasicBlock, BasicBlock, BasicBlockLRD],
+                         [2, 2, 2, 2],
+                         pretrained=args.pretrained, progress=True,
+                         model_arch='resnet18')
+    args.__dict__[name]['out_features'] = model.out_features
     return model
 
 
-
-class ResNetCSD(nn.Module):
-    def __init__(self,     
-            block: Type[Union[BasicBlock, Bottleneck, BasicBlockDynamic, BottleneckDynamic]],
-            layers: List[int],
-            has_fc: bool = True,
-            num_classes: int = 1000,
-            zero_init_residual: bool = False,
-            groups: int = 1,
-            width_per_group: int = 64,
-            replace_stride_with_dilation: Optional[List[bool]] = None,
-            norm_layer: Optional[Callable[..., nn.Module]] = None,
-            ms_class=None,
-            ms_layers=None,
-            ms_p=0.5,
-            ms_a=0.1,
-            classes=100):
-        self.inplanes = 64
-        super().__init__()
-        self.has_fc = has_fc
-        self.out_features = 512 * block.expansion
-
-        self.conv1 = nn.Conv2d(3, 64, kernel_size=7, stride=2, padding=3,
-                               bias=False)
-        self.bn1 = nn.BatchNorm2d(64)
-        self.relu = nn.ReLU(inplace=True)
-        self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
-        self.layer1 = self._make_layer(block, 64, layers[0])
-        self.layer2 = self._make_layer(block, 128, layers[1], stride=2)
-        self.layer3 = self._make_layer(block, 256, layers[2], stride=2)
-        self.layer4 = self._make_layer(block, 512, layers[3], stride=2)
-        self.avgpool = nn.AvgPool2d(7, stride=1)
-    
-        K = 2
-        # sms: 2, 512, 100 / sm_biases: 2, 100
-        self.sms = torch.nn.Parameter(torch.normal(0, 1e-1, size=[K, 512, classes], dtype=torch.float, device='cuda'), requires_grad=True)
-        self.sm_biases = torch.nn.Parameter(torch.normal(0, 1e-1, size=[K, classes], dtype=torch.float, device='cuda'), requires_grad=True)
-        # emb
-        self.embs = torch.nn.Parameter(torch.normal(mean=0., std=1e-4, size=[64, K-1], dtype=torch.float, device='cuda'), requires_grad=True)
-        self.cs_wt = torch.nn.Parameter(torch.normal(mean=.1, std=1e-4, size=[], dtype=torch.float, device='cuda'), requires_grad=True)
-
-        for m in self.modules():
-            if isinstance(m, nn.Conv2d):
-                nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
-            elif isinstance(m, nn.BatchNorm2d):
-                nn.init.constant_(m.weight, 1)
-                nn.init.constant_(m.bias, 0)
-
-        # if zero_init_residual:
-        #     for m in self.modules():
-        #         if isinstance(m, Bottleneck):
-        #             nn.init.constant_(m.bn3.weight, 0)  # type: ignore[arg-type]
-        #         elif isinstance(m, BasicBlock):
-        #             nn.init.constant_(m.bn2.weight, 0)  # type: ignore[arg-type
-
-    def _make_layer(self, block, planes, blocks, stride=1):
-        downsample = None
-        if stride != 1 or self.inplanes != planes * block.expansion:
-            downsample = nn.Sequential(
-                nn.Conv2d(self.inplanes, planes * block.expansion,
-                          kernel_size=1, stride=stride, bias=False),
-                nn.BatchNorm2d(planes * block.expansion),
-            )
-
-        layers = []
-        layers.append(block(self.inplanes, planes, stride, downsample))
-        self.inplanes = planes * block.expansion
-        for i in range(1, blocks):
-            layers.append(block(self.inplanes, planes))
-
-        return nn.Sequential(*layers)
-
-    def is_patch_based(self):
-        return False
-
-    def forward(self, x, **kwargs):
-        # one hot uids
-        x = self.conv1(x)
-        x = self.bn1(x)
-        x = self.relu(x)
-        x = self.maxpool(x)
-
-        x = self.layer1(x)
-        x = self.layer2(x)
-        x = self.layer3(x)
-        x = self.layer4(x)
-
-        x = self.avgpool(x)
-        x = x.view(x.size(0), -1)
-        
-        # [512, 100], [100]
-        w_c, b_c = self.sms[0, :, :], self.sm_biases[0, :]
-        print(f'w_c:{w_c.shape}, b_c:{b_c.shape}')
-        
-        # 8th Layer: FC and return unscaled activations
-        logits_common = torch.matmul(x, w_c) + b_c
-        print(f'logit_common:{logits_common.shape}')
-        c_wts = self.embs # uids matmul 삭제
-        print(f'c_wtc:{c_wts.shape}, sms:{self.sms.shape}, sm_bias{self.sm_biases.shape}')
-        # B x K
-        batch_size = x.shape[0]
-        print(f'x:{x.shape}, batch_size {batch_size}')
-        c_wts = torch.cat((torch.ones((batch_size, 1), dtype=torch.float, device='cuda')*self.cs_wt, c_wts), 1)
-        print(f'cat: c_wtc:{c_wts.shape}')
-        c_wts = torch.tanh(c_wts)
-        print(f'tanh: c_wtc:{c_wts.shape}')
-        w_d, b_d = torch.einsum("bk,krl->brl", c_wts, self.sms), torch.einsum("bk,kl->bl", c_wts, self.sm_biases)
-        logits_specialized = torch.einsum("brl,br->bl", w_d, x) + b_d
-        
-        return logits_specialized, logits_common
-def _resnetcsd(
-        arch: str,
-        block: Type[Union[BasicBlock, Bottleneck, BasicBlockDynamic, BottleneckDynamic]],
-        layers: List[int],
-        pretrained: bool,
-        progress: bool,
-        num_classes: int,
-        **kwargs: Any
-) -> ResNetCSD:
-    model = ResNetCSD(block, layers, **kwargs)
-    if pretrained:
-        state_dict = load_state_dict_from_url(model_urls[arch],
-                                              progress=progress)
-        # remove useless keys from sate_dict 1. no fc; 2. out_features != 1000.
-        removed_keys = model.has_fc is False or (model.has_fc is True and model.out_features != 1000)
-        removed_keys = ['fc.weight', 'fc.bias'] if removed_keys else []
-        csd_removed_keys=['sms', 'sm_biases', 'embs', 'cs_wt']
-        for key in removed_keys :
-            state_dict.pop(key)
-        # csd_removed_keys=['sms', 'sm_biases', 'embs', 'cs_wt']
-        # if has fc, then allow missing key, else strict load state_dict.
-        allowed_missing_keys = removed_keys + csd_removed_keys if model.has_fc else csd_removed_keys
-        load_state_dict(model, state_dict, allowed_missing_keys)
+@MODELS_REGISTRY.register()
+def resnet34_lrd(name, args, from_name=None) -> ResNet:
+    model = _resnet([BasicBlock, BasicBlock, BasicBlock, BasicBlockLRD],
+                         [3, 4, 6, 3],
+                         pretrained=args.pretrained, progress=True,
+                         model_arch='resnet34')
+    args.__dict__[name]['out_features'] = model.out_features
     return model
 
 @MODELS_REGISTRY.register()
-def resnet18_csd(name, args, from_name=None) -> ResNetCSD:
-    """Constructs a ResNet-18 model.
-    Args:
-        pretrained (bool): If True, returns a model pre-trained on ImageNet
-    """
-    model = _resnetcsd('resnet18', BasicBlock, [2, 2, 2, 2], pretrained=args.pretrained, progress=True,
-                    num_classes=args.num_classes)
+def resnet50_lrd(name, args, from_name=None) -> ResNet:
+    model = _resnet([Bottleneck, Bottleneck, Bottleneck, BottleneckLRD],
+                         [3, 4, 6, 3],
+                         pretrained=args.pretrained, progress=True,
+                         model_arch='resnet50')
     args.__dict__[name]['out_features'] = model.out_features
     return model
+
+
+@MODELS_REGISTRY.register()
+def resnet18_dynamic(name, args, from_name=None) -> ResNet:
+
+    model = _resnet([BasicBlockDynamic,BasicBlockDynamic,BasicBlockDynamic,BasicBlockDynamic], 
+                    [2, 2, 2, 2], 
+                    pretrained=args.pretrained, progress=True,
+                    model_arch='resnet18')
+    args.__dict__[name]['out_features'] = model.out_features
+    return model
+
+
+@MODELS_REGISTRY.register()
+def resnet50_dynamic(name, args, from_name=None) -> ResNet:
+    r"""ResNet-50 model from
+    `"Deep Residual Learning for Image Recognition" <https://arxiv.org/pdf/1512.03385.pdf>`_.
+
+    Args:
+        name: model name of trainer, used for parameter exchange.
+        from_name: where to get in_features.
+        args: Include the necessary parameters
+    """
+    model = _resnet('resnet50_dynamic', BottleneckDynamic, [3, 4, 6, 3], pretrained=args.pretrained, progress=True,
+                    has_fc=False)
+    args.__dict__[name]['out_features'] = model.out_features
+    return model
+
+
+
 
 
 

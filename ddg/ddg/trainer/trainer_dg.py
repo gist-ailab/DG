@@ -12,6 +12,18 @@ class TrainerDG(Trainer):
     """Base trainer provided by DDG, one can inherit it to implement your own trainer.
     """
     TASK = "DG"
+    def __init__(self):
+        super(TrainerDG, self).__init__()
+        self.add_extra_args()
+        args = self.parser.parse_args()
+        self.num_class = args.num_class[args.dataset]
+
+
+    def add_extra_args(self):
+        parser = self.parser
+        parser.add_argument('--num_class', type=dict, default={'PACS' : 7,
+                                                                'OfficeHome' : 65,
+                                                                'DomainNet' : 345})
 
     def build_dataset(self):
         args = self.args
@@ -27,7 +39,7 @@ class TrainerDG(Trainer):
                                                                    domains=set(args.target_domains),
                                                                    splits={'test'},
                                                                    transform=self.transform.test)
-        args.num_classes = self.datasets['train'].num_classes
+    
 
     def build_data_loader(self):
         args = self.args

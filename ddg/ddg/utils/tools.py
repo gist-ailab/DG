@@ -106,21 +106,23 @@ def load_state_dict(model: nn.Module, state_dict: 'OrderedDict[str, Tensor]',
     missing_keys, unexpected_keys = model.load_state_dict(state_dict, strict=False) #strict=allowed_missing_keys is None)
 
     msgs: List[str] = []
-    raise_error = False
+    # raise_error = False
     if len(unexpected_keys) > 0:
-        raise_error = True
+        # raise_error = True
         msgs.insert(
             0, 'Unexpected key(s) in state_dict: {}. '.format(
                 ', '.join('"{}"'.format(k) for k in unexpected_keys)))
-    # if len(missing_keys) > 0:
-    #     if allowed_missing_keys is None or sorted(missing_keys) != sorted(allowed_missing_keys):
-    #         raise_error = True
-    #     msgs.insert(
-    #         0, 'Missing key(s) in state_dict: {}. '.format(
-    #             ', '.join('"{}"'.format(k) for k in missing_keys)))
+    if len(missing_keys) > 0:
+        # if allowed_missing_keys is None or sorted(missing_keys) != sorted(allowed_missing_keys):
+            # raise_error = True
+        msgs.insert(
+            0, 'Missing key(s) in state_dict: {}. '.format(
+                ', '.join('"{}"'.format(k) for k in missing_keys)))
     # if raise_error:
     #     raise RuntimeError('Error(s) in loading state_dict for {}:\n\t{}'.format(
     #         model.__class__.__name__, "\n\t".join(msgs)))
-    # if len(msgs) > 0:
-    #     logger.info('\nInfo(s) in loading state_dict for {}:\n\t{}'.format(
-    #                        model.__class__.__name__, "\n\t".join(msgs)))
+    if len(msgs) > 0:
+        logger.info('\nInfo(s) in loading state_dict for {}:\n\t{}'.format(
+                           model.__class__.__name__, "\n\t".join(msgs)))
+
+    return missing_keys, unexpected_keys
