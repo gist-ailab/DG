@@ -289,11 +289,11 @@ class Trainer:
             for model in self.models:
                 self.models[model] = DistributedDataParallel(self.models[model], device_ids=[self.args.gpu], find_unused_parameters=True)
                 
-    def run_progress(self, run_fn, world_size):
-        if args.distributed:
-            mp.spawn(run_fn, nprocs=args.world_size, args=(args,), join=True)
-        else:
-            run_fn()
+    # def run_progress(self, run_fn, world_size):
+    #     if args.distributed:
+    #         mp.spawn(run_fn, nprocs=args.world_size, args=(args,), join=True)
+    #     else:
+    #         run_fn()
 
     def build_optimizer(self):
         args = self.args
@@ -426,7 +426,7 @@ class Trainer:
 
                 self.meters_update(batch_time=batch_time,
                                    data_time=data_time,
-                                   losses=loss.item(),
+                                   losses=loss,#.item(),
                                    top1=acc1[0],
                                    top5=acc5[0],
                                    batch_size=images.size(0))
@@ -435,9 +435,10 @@ class Trainer:
                 end = time.time()
 
                 # log to tensorboard
-                self.writer.add_scalar('loss/train', loss.item(), i)
-                self.writer.add_scalar('acc1/train', acc1[0], i)
-                self.writer.add_scalar('acc5/train', acc5[0], i)
+                if self.writer is not None:
+                    self.writer.add_scalar('loss/train', loss, i)#.item(), i)
+                    self.writer.add_scalar('acc1/train', acc1[0], i)
+                    self.writer.add_scalar('acc5/train', acc5[0], i)
 
 
                 if i % args.log_freq == 0:

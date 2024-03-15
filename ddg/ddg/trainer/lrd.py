@@ -93,18 +93,18 @@ class LRD_Trainer(Trainer):
         train_losses = self.meters['losses'].avg
         train_acc1 = self.meters['top1'].avg
         train_acc5 = self.meters['top5'].avg
-        self.evaluate(split=self.args.val_split)
-        losses = self.meters['losses'].avg
-        acc1 = self.meters['top1'].avg
-        acc5 = self.meters['top5'].avg
-        is_best = acc1 > self.best_acc1
-        self.best_acc1 = max(acc1, self.best_acc1)
+        self.evaluate(split=self.args.val_split, split='val')
+        val_losses = self.meters['losses'].avg
+        val_acc1 = self.meters['top1'].avg
+        val_acc5 = self.meters['top5'].avg
+        is_best = val_acc1 > self.val_best_acc1
+        self.val_best_acc1 = max(val_acc1, self.val_best_acc1)
         if self.writer is not None:
             lr = self.optimizer.param_groups[0]['lr']
             self.writer.add_scalars('learning_rate', {'lr': lr}, self.epoch + 1)
-            self.writer.add_scalars('losses', {'train': train_losses, 'validation': losses}, self.epoch + 1)
-            self.writer.add_scalars('acc@1', {'train': train_acc1, 'validation': acc1}, self.epoch + 1)
-            self.writer.add_scalars('acc@5', {'train': train_acc5, 'validation': acc5}, self.epoch + 1)
+            self.writer.add_scalars('losses', {'train': train_losses, 'val': val_losses}, self.epoch + 1)
+            self.writer.add_scalars('acc@1', {'train': train_acc1, 'val': val_acc1}, self.epoch + 1)
+            self.writer.add_scalars('acc@5', {'train': train_acc5, 'val': val_acc5}, self.epoch + 1)
             self.save_checkpoint(is_best=is_best)
     
     def run_epoch(self):
@@ -147,7 +147,7 @@ class LRD_Trainer(Trainer):
             elif model == 'fc':
                 self.common_fc_out = self.models[model].float()(self.common_features)
             else:
-                raise Error(f"Model name {model} is not implemented yet!")
+                print(f"Model name {model} is not implemented yet!")
 
         return self.features.to(self.args.local_rank), self.common_features.to(self.args.local_rank), self.specific_features.to(self.args.local_rank), self.common_fc_out.to(self.args.local_rank)
     
@@ -180,7 +180,7 @@ class LRD_Trainer(Trainer):
         return images.float(), target.long(), domain
     
     @torch.no_grad()
-    def evaluate(self, split='test'):
+    def evaluate(self, split='test', mode='test'):
 
         def run_evaluate(loader):
             args = self.args
@@ -210,19 +210,20 @@ class LRD_Trainer(Trainer):
 
                 self.meters_update(batch_time=batch_time,
                                    data_time=data_time,
-                                   losses=loss,
-                                   top1=acc1[0],
-                                   top5=acc5[0],
+                                   val_losses=loss,
+                                   val_top1=acc1[0],
+                                   val_top5=acc5[0],
                                    batch_size=images.size(0))
 
                 # measure elapsed time
                 end = time.time()
 
                 # log to tensorboard
-                if self.writer is not None:
-                    self.writer.add_scalar('loss/train', loss, i)
-                    self.writer.add_scalar('acc1/train', acc1[0], i)
-                    self.writer.add_scalar('acc5/train', acc5[0], i)
+                if mode == 'val':
+                    if self.writer is not None:
+                        self.writer.add_scalar('loss/val', loss, i)
+                        self.writer.add_scalar('acc1/val', acc1[0], i)
+                        self.writer.add_scalar('acc5/val', acc5[0], i)
 
 
                 if i % args.log_freq == 0:
