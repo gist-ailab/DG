@@ -1,5 +1,6 @@
 import torch
 from ddg.trainer import TrainerDG
+import torch.nn as nn
 
 __all__ = ['DomainMix']
 
@@ -25,11 +26,13 @@ class DomainMix(TrainerDG):
 
     def model_forward_backward(self, batch):
         images, target, label_a, label_b, lam = self.parse_batch_train(batch)
+        images_vis, target_vis = images, target
         output = self.model_inference(images)
+        
         loss = lam * self.criterion(output, label_a) + (1 - lam) * self.criterion(output, label_b)
         self.optimizer_step(loss)
         acc1, acc5 = self.accuracy(output, target, topk=(1, 5))
-        return loss, acc1, acc5, images.size(0)
+        return loss, acc1, acc5, images.size(0), images_vis, target_vis
 
     def parse_batch_train(self, batch):
         images, target, domain = super(DomainMix, self).parse_batch_train(batch)
@@ -56,6 +59,8 @@ class DomainMix(TrainerDG):
         target_a, target_b = target, target[perm]
         return mixed_x, target_a, target_b, lam
 
+    def build_criterion(self):
+        self.criterion = nn.CrossEntropyLoss(label_smoothing=self.args.label_smoothing).cuda(self.args.gpu)
 
 if __name__ == '__main__':
     DomainMix().run()

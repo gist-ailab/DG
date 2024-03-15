@@ -6,7 +6,7 @@ from torchmetrics.functional.pairwise import pairwise_cosine_similarity
 from ddg.utils import LOSS_REGISTRY
 
 __all__ = ['cosine_pairwise_loss', 'cosine_loss',
-           'orthogonal_projection_loss']
+           'orthogonal_projection_loss', 'orthogonal_loss']
 
 
 class CosineLoss(nn.Linear):
@@ -58,24 +58,85 @@ class CosinePairwiseLoss(nn.Module):
     def __init__(self):
         super(CosinePairwiseLoss, self).__init__()
 
-    def forward(self, input):
-        cs_matrix = torch.triu(pairwise_cosine_similarity(input))
-        avg_cs = torch.sum(cs_matrix) / (input.shape[0] * input.shape[0] / 2)
-        assert avg_cs <= 1 and avg_cs >= -1
-        return 1 - avg_cs    
+    def forward(self, feature, pred):
+        # feature.require_grad = True
+        # cls_sum=[]
+        cls_sum = 0
+        for i in list(torch.unique(pred)):
+            idx = torch.where(pred == i)
+    
+            if len(idx[0]) == 1:
+                continue
+            else: 
+                # idx = idx.nonzero().squeeze(-1)
+            # print('idx:', idx.shape)
+                cls_feature = feature[idx[0]]
+                
+            # print('cls_feature:', cls_feature.shape)
+            # print(pairwise_cosine_similarity(cls_feature).shape)
+                # cs_matrix = torch.triu(pairwise_cosine_similarity(cls_feature))
+                # avg_cs = torch.sum(cs_matrix) / (cls_feature.shape[0] * cls_feature.shape[0] / 2)
+                cos_sim_matrix = pairwise_cosine_similarity(cls_feature).float()
+                lower_tri_mask = torch.tril(torch.ones_like(cos_sim_matrix), diagonal=-1)
+                avg_cs = torch.mean(cos_sim_matrix[lower_tri_mask.bool()])
+                # avg_cs = torch.mean(pairwise_cosine_similarity(cls_feature).float())
+                # print('fffffff', pairwise_cosine_similarity(cls_feature).shape)
+            # assert avg_cs <= 1 and avg_cs >= -1
+                # print(avg_cs.shape)
+                # print(avg_cs)
+                cls_sum = cls_sum + avg_cs
+                # print(f'f_{avg_cs.shape}')
+        # if len(cls_sum) == 0: 
+        #     return torch.tensor(0)
+        # cls_avg = torch.mean(torch.stack(cls_sum).float())
+        # print(cls_avg.shape)
+        cls_avg = cls_sum / len(list(torch.unique(pred)))
+        return 1 - cls_avg  
+# #%%
+# import torch
+# pred = torch.tensor([1,2,2,2,3])
+# for i in [1,2,3]:
+#     idx = torch.where(pred == i)
+#     print(idx)
+# #%%
 
+# class OrthogonalLoss(nn.Module):
+#     r"""
+#     Orthogonal Loss
+#     """
+#     def __init__(self, batch_num, dim):
+#         super(OrthogonalLoss, self).__init__()
+#         self.diag_tensor = torch.eye(batch_num, dim)
+#         self.batch_num = batch_num
 
+#     def forward(self, common, specific):
+#         cps = torch.stack([torch.matmul(common, specific.T) for _ in range(self.batch_num)])
+#         orthn_loss = torch.mean((cps - self.diag_tensor)**2)
+#         return orthn_loss
 class OrthogonalLoss(nn.Module):
-    r"""
-    Orthogonal Loss
-    """
     def __init__(self):
         super(OrthogonalLoss, self).__init__()
+        # self.batch_num = batch_num
+        # self.dim = di
+       # Compute the dot product between a and b
+    def forward(self,common,specific):
+        # common.require_grad = True
+        # specific.require_grad = True
 
-    def forward(self, input):
-        return torch.norm(input.t() @ input - torch.eye(input.shape[1]), p='fro')
+        loss = []
+        for i in range(common.shape[0]):
+            a = common[i]
+            b = specific[i]
+            dot_product = torch.dot(a, b)
+            loss.append(torch.mean(torch.abs(dot_product)))
+        loss= (torch.stack(loss, dim=0)).squeeze()
+            # loss = torch.stack(loss, dim=0).sum(dim=0).sum(dim=0)
+        return torch.mean(loss)
 
-
+    # Compute the loss as the absolute value of the dot product
+    # loss = 
+    
+    # return loss
 
 
 # https://github.com/kahnchana/opl/blob/master/loss.py
@@ -108,8 +169,8 @@ class OrthogonalProjectionLoss(nn.Module):
 
 
 @LOSS_REGISTRY.register()
-def cosine_pairwise_loss(logit):
-    loss = CosinePairwiseLoss()(logit)
+def cosine_pairwise_loss():
+    loss = CosinePairwiseLoss()
     return loss 
 
 @LOSS_REGISTRY.register()
@@ -118,10 +179,8 @@ def cosine_loss(logit, target):
     return loss
 
 @LOSS_REGISTRY.register()
-def orthogonal_loss(common_feature, specific_feature):
-    diag_tensor = torch.stack([torch.eye(logit.shape[1]) for _ in range(logit.shape[0])], dim=0).cuda()
-    cps = torch.stack([torch.matmul(logit[:, :, _], torch.transpose(logit[:, :, _], 0, 1)) for _ in range(logit.shape[0])], dim=0)
-    loss = OrthogonalLoss()(common_feature, specific_feature)
+def orthogonal_loss():
+    loss = OrthogonalLoss()
     return loss
 
 @LOSS_REGISTRY.register()
