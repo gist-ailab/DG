@@ -8,7 +8,9 @@ from torch.nn import functional as F
 from torch import Tensor
 from logger_tt import logger
 from collections import OrderedDict
-
+import sklearn.metrics as skmet
+# from terminaltables import SingleTable
+# from termcolor import colored
 
 __all__ = ['Summary', 'AverageMeter', 'ProgressMeter', 'load_state_dict', 'matplotlib_imshow', 'images_to_probs', 'plot_classes_preds']
 

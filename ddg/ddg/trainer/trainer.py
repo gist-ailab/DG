@@ -371,7 +371,7 @@ class Trainer:
         if self.args.final_model is not None:
             if self.args.final_model == 'best_val':
                 self.resume_train_state(resume_path=os.path.join(self.args.save_dir, 'checkpoint_best.pth.tar'))
-            self.evaluate('val')
+            self.evaluate('test', mode='test')
         self.logger.info('Finished...')
 
     def before_epoch(self):

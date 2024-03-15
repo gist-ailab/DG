@@ -90,14 +90,18 @@ class LRD_Trainer(Trainer):
         return self.criterion
 
     def after_epoch(self):
+        self.scheduler_step()
+
         train_losses = self.meters['losses'].avg
         train_acc1 = self.meters['top1'].avg
         train_acc5 = self.meters['top5'].avg
+        self.resume_train_state()
         self.evaluate(split=self.args.val_split, split='val')
         val_losses = self.meters['losses'].avg
         val_acc1 = self.meters['top1'].avg
         val_acc5 = self.meters['top5'].avg
         is_best = val_acc1 > self.val_best_acc1
+    
         self.val_best_acc1 = max(val_acc1, self.val_best_acc1)
         if self.writer is not None:
             lr = self.optimizer.param_groups[0]['lr']
@@ -261,7 +265,7 @@ class LRD_Trainer(Trainer):
 
         if self.args.evaluate:
             self.logger.info('Evaluate started...')
-            self.evaluate()
+            self.evaluate('test', 'test')
         else:
             self.logger.info('Train started...')
             self.train()
